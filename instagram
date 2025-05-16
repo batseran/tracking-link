@@ -1,1 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tracking Link Creator & Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(120deg, #667eea, #764ba2);
+    color: #fff;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+  }
+  h1 {
+    font-weight: 600;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+  .container {
+    background: rgba(255 255 255 / 0.1);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 600px;
+    width: 100%;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: none;
+    margin-bottom: 1rem;
+    outline: none;
+  }
+  button {
+    background: #5A67D8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  button:hover {
+    background: #434190;
+  }
+  .tracking-link {
+    margin-top: 1rem;
+    background: rgba(0 0 0 / 0.3);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    word-wrap: break-word;
+  }
+  .location-list {
+    margin-top: 1rem;
+    max-height: 300px;
+    overflow-y: auto;
+    background: rgba(0 0 0 / 0.3);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .location-item {
+    margin-bottom: 0.75rem;
+    background: rgba(255 255 255 / 0.15);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+  }
+  .location-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .footer {
+    margin-top: auto;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    text-align: center;
+  }
+  .message {
+    margin-top: 1rem;
+    font-weight: 600;
+  }
+  a {
+    color: #a3bffa;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+<h1>Tracking Link Creator & Visitor Location Tracker</h1>
+<div class="container" id="creator-container">
+  <label for="tracker-name">Enter a name/label for your tracking link:</label>
+  <input type="text" id="tracker-name" placeholder="e.g. Summer Campaign" />
+  <button id="create-link-btn">Create Tracking Link</button>
+  <div class="tracking-link" id="tracking-link" style="display:none;"></div>
+  <button id="clear-data-btn" style="margin-top:1rem; background:#c53030;">Clear All Stored Data</button>
+</div>
+
+<div class="container" id="tracker-container" style="display:none;">
+  <div class="message" id="tracker-message"></div>
+</div>
+
+<script>
+  (function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const trackingId = urlParams.get('track_id');
+    const creatorContainer = document.getElementById('creator-container');
+    const trackerContainer = document.getElementById('tracker-container');
+    const trackerMessage = document.getElementById('tracker-message');
+    const trackingLinkDiv = document.getElementById('tracking-link');
+    const createLinkBtn = document.getElementById('create-link-btn');
+    const trackerNameInput = document.getElementById('tracker-name');
+    const clearDataBtn = document.getElementById('clear-data-btn');
+
+    // Utility to generate random ID
+    function generateId(length = 8) {
+      return Math.random().toString(36).substr(2, length);
+    }
+
+    // Save visitor location info under a tracking ID in localStorage
+    function saveVisitorLocation(trackId, locationData) {
+      let existingData = JSON.parse(localStorage.getItem('tracking-data') || '{}');
+      if (!existingData[trackId]) {
+        existingData[trackId] = [];
+      }
+      existingData[trackId].push(locationData);
+      localStorage.setItem('tracking-data', JSON.stringify(existingData));
+    }
+
+    // Show all visitor location data for each tracking ID
+    function displayTrackedData() {
+      let data = JSON.parse(localStorage.getItem('tracking-data') || '{}');
+      if (!data || Object.keys(data).length === 0) {
+        trackingLinkDiv.innerHTML = "<i>No tracking data collected yet.</i>";
+        return;
+      }
+      let html = '';
+      for (const [trackId, visits] of Object.entries(data)) {
+        html += `<h3>Tracking ID: ${trackId}</h3>`;
+        visits.forEach((visit, idx) => {
+          html += `<div class="location-item">
+            <div class="location-title">Visitor #${idx + 1} (${new Date(visit.timestamp).toLocaleString()})</div>
+            <div>Latitude: ${visit.latitude.toFixed(5)}, Longitude: ${visit.longitude.toFixed(5)}</div>
+            <div>Accuracy: ${visit.accuracy} meters</div>
+          </div>`;
+        });
+      }
+      trackingLinkDiv.innerHTML = html;
+    }
+
+    // Main logic on page load
+    if (trackingId) {
+      // This is the tracking link visitor view
+      creatorContainer.style.display = 'none';
+      trackerContainer.style.display = 'block';
+      trackerMessage.textContent = 'Requesting your location... Please allow location access if prompted.';
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude, accuracy } = position.coords;
+        const locationData = {
+          latitude,
+          longitude,
+          accuracy,
+          timestamp: Date.now()
+        };
+        saveVisitorLocation(trackingId, locationData);
+        trackerMessage.innerHTML = `<strong>Thank you!</strong><br>Your location has been recorded.<br>
+          <small>Latitude: ${latitude.toFixed(5)}, Longitude: ${longitude.toFixed(5)}</small>`;
+      }, error => {
+        trackerMessage.innerHTML = `<strong>Location unavailable or permission denied.</strong><br>We could not record your location.`;
+      }, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      });
+    } else {
+      // Owner's main page
+      trackerContainer.style.display = 'none';
+      createLinkBtn.addEventListener('click', () => {
+        const name = trackerNameInput.value.trim();
+        if (!name) {
+          alert('Please enter a name or label for your tracking link.');
+          return;
+        }
+        const trackId = generateId(10);
+        // Store name for display along with IDs (optional)
+        let existingNames = JSON.parse(localStorage.getItem('tracking-names') || '{}');
+        existingNames[trackId] = name;
+        localStorage.setItem('tracking-names', JSON.stringify(existingNames));
+        const link = `${window.location.origin}${window.location.pathname}?track_id=${trackId}`;
+        trackingLinkDiv.style.display = 'block';
+        trackingLinkDiv.innerHTML = `Tracking link for <b>${name}</b>:<br><a href="${link}" target="_blank" rel="noopener">${link}</a>`;
+        trackerNameInput.value = '';
+        displayTrackedData();
+      });
+
+      clearDataBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all stored tracking data?')) {
+          localStorage.removeItem('tracking-data');
+          localStorage.removeItem('tracking-names');
+          trackingLinkDiv.innerHTML = '';
+        }
+      });
+
+      displayTrackedData();
+    }
+  })();
+</script>
+</body>
+</html>
+
 
